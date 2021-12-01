@@ -66,7 +66,7 @@ read_lock_file(slf::SimpleLockFile) = _read_lock_file(lock_path(slf))
 
 _is_valid_ttag(ttag) = ttag > time()
 
-function has_lock(lf::String, lkid::String)
+function is_locked(lf::String, lkid::String)
     
     # read
     curr_lid, ttag = _read_lock_file(lf)
@@ -81,14 +81,14 @@ function has_lock(lf::String, lkid::String)
     return lkid == curr_lid
 end
 
-has_lock(slf::SimpleLockFile, lkid::String) = has_lock(lock_path(slf), lkid)
+is_locked(slf::SimpleLockFile, lkid::String) = is_locked(lock_path(slf), lkid)
 
 # ----------------------------------------------------------------------
 # release
 
 function release_lock(lf::String, lkid::String)
     !isfile(lf) && return false
-    !has_lock(lf, lkid) && return false
+    !is_locked(lf, lkid) && return false
     isfile(lf) && rm(lf; force = true)
     return true
 end
@@ -96,7 +96,7 @@ end
 release_lock(slf::SimpleLockFile, lkid::String) = release_lock(lock_path(slf), lkid)
 
 # ----------------------------------------------------------------------
-# acquire
+# acquire_lock
 
 function _acquire(lf::String, lkid::String = rand_lkid();
         vtime = _LOCK_DFT_VALID_TIME
@@ -120,7 +120,7 @@ function _acquire(lf::String, lkid::String = rand_lkid();
     return _write_lock_file(lf; lkid, vtime)
 end
 
-function acquire(lf::String, lkid::String = rand_lkid();
+function acquire_lock(lf::String, lkid::String = rand_lkid();
         vtime = _LOCK_DFT_VALID_TIME, 
         wt = _LOCK_DFT_WAIT_TIME, 
         tout = _LOCK_DFT_TIME_OUT,
@@ -147,7 +147,7 @@ function acquire(lf::String, lkid::String = rand_lkid();
     end
 end
 
-acquire(slf::SimpleLockFile, lkid::String = rand_lkid(); kwargs...) = acquire(lock_path(slf), lkid)
+acquire_lock(slf::SimpleLockFile, lkid::String = rand_lkid(); kwargs...) = acquire_lock(lock_path(slf), lkid)
 
 # ----------------------------------------------------------------------
 # Base.lock
@@ -161,10 +161,10 @@ import Base.lock
         force = false
     )
 
-Acquire the lock, execute `f()` with the lock held, and release the lock when f returns.
+acquire_lock the lock, execute `f()` with the lock held, and release the lock when f returns.
 If the lock is already locked by a different `lkid`, wait (till `tout`) for it to become available.
-During waiting, it will sleep `wt` seconds before re-attemping to acquire.
-If `force = true` it will acquire the lock after `tout`.
+During waiting, it will sleep `wt` seconds before re-attemping to acquire_lock.
+If `force = true` it will acquire_lock the lock after `tout`.
 This method is not fully secure to race, but it must be ok for sllow applications.
 Returns `true` if the lock
     
@@ -179,10 +179,10 @@ function lock(
 
     lf = lock_path(slf)
     try
-        acquire(lf, lkid; force, vtime, wt, tout)
+        acquire_lock(lf, lkid; force, vtime, wt, tout)
         f()
     finally
-        ok_flag = has_lock(lf, lkid)
+        ok_flag = is_locked(lf, lkid)
         release_lock(lf, lkid)
         return ok_flag
     end

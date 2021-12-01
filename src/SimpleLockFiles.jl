@@ -1,5 +1,7 @@
 module SimpleLockFiles
 
-# Write your package code here.
+include("core.jl")
+
+export lock_path, rand_lkid
 
 end

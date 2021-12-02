@@ -30,11 +30,11 @@ mkpath(slf::SimpleLockFile) = mkpath(dirname(lock_path(slf)))
 
 # ----------------------------------------------------------------------
 # id
-const _lock_path_SEP = ","
+const _LOCK_FILE_SEP = ","
 
 _validate_id(lock_id::String) = 
-    contains(lock_id, _lock_path_SEP) && 
-        error("Separator '", _lock_path_SEP, "' found in the lock id")
+    contains(lock_id, _LOCK_FILE_SEP) && 
+        error("Separator '", _LOCK_FILE_SEP, "' found in the lock id")
 
 const _LOCK_ID_DICT = ['a':'z'; 'A':'Z'; '0':'9']
 rand_lkid(n = 10) = join(rand(_LOCK_ID_DICT, n))
@@ -52,7 +52,7 @@ function _write_lock_file(lf::String;
     )
     mkpath(dirname(lf))
     ttag = time() + vtime
-    write(lf, string(lkid, _lock_path_SEP, ttag))
+    write(lf, string(lkid, _LOCK_FILE_SEP, ttag))
     return (lkid, ttag)
 end
 
@@ -65,7 +65,7 @@ write_lock_file(slf::SimpleLockFile; kwargs...) =
 function _read_lock_file(lf::String)
     !isfile(lf) && return ("", -1.0)
     txt = read(lf, String)
-    spt = split(txt, _lock_path_SEP)
+    spt = split(txt, _LOCK_FILE_SEP)
     length(spt) != 2 && return ("", -1.0)
     lkid = spt[1]
     ttag = tryparse(Float64, spt[2])

@@ -52,14 +52,34 @@ using Test
     @test !isfile(slf)
 
     # base.lock
-    lock(slf; vtime = 3.0) do
+    lkid6 = SLF.rand_lkid()
+    run_test = false
+    ok_flag = lock(slf, lkid6; vtime = 5.0) do
         # all this time the lock is taken
         for it in 1:10
-            @test !SLF.is_locked(slf, "Not a lock id")
-            sleep(0.2)
+            @test SLF.is_locked(slf, lkid6)
+            @test !SLF.is_locked(slf, "No $(lkid6)")
+            sleep(0.1) # 0.1 x 10 < 3.0
+            run_test = true
         end
     end
+    @test ok_flag # this must be a valid lock process
+    @test run_test
     @test !isfile(slf) # released!
+
+    # Test unlock force_unlock
+    lkid7 = SLF.rand_lkid()
+    run_test = false
+    ok_flag = lock(slf, lkid7; vtime = 15.0) do
+        SLF.unlock(slf, "No $(lkid7)") # this must do nohthing
+        @test SLF.is_locked(slf, lkid7)
+        SLF.force_unlock(slf) # Boom
+        @test !isfile(slf) # Now must be free
+        @test !SLF.is_locked(slf, lkid7)
+        run_test = true
+    end
+    @test run_test
+    @test !ok_flag # The force_unlock invalidate the lock process
 
     # clear
     rm(slf; force = true)

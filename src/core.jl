@@ -45,6 +45,7 @@ rand_lkid(n = 10) = join(rand(_LOCK_ID_DICT, n))
 const _LOCK_DFT_TIME_OUT = 0.0
 const _LOCK_DFT_WAIT_TIME = 1.0
 const _LOCK_DFT_VALID_TIME = 30.0
+const _LOCK_DFT_CHECK_TIME = 0.1
 
 function _write_lock_file(lf::String;
         lkid::String = rand_lkid(), 
@@ -158,13 +159,20 @@ function _acquire_lock(lf::String, lkid::String = rand_lkid();
         vtime = _LOCK_DFT_VALID_TIME, 
         wt = _LOCK_DFT_WAIT_TIME, 
         tout = _LOCK_DFT_TIME_OUT,
+        ctime = _LOCK_DFT_CHECK_TIME,
         force = false
     )
+    ctime = abs(ctime)
+
     if tout > 0.0
         t0 = time()
         while true
             lkid0, ttag = _acquire(lf, lkid; vtime)
-            !isempty(lkid0) && return (lkid, ttag)
+            if !isempty(lkid0) 
+                sleep(ctime) # wait before confirm
+                _is_locked(lf, lkid) && return (lkid, ttag)
+            end
+
             if (time() - t0) > tout 
                 if force 
                     _force_unlock(lf)
@@ -210,13 +218,14 @@ function lock(
         vtime = _LOCK_DFT_VALID_TIME, 
         wt = _LOCK_DFT_WAIT_TIME, 
         tout = _LOCK_DFT_TIME_OUT,
+        ctime = _LOCK_DFT_CHECK_TIME,
         force = false
     )
 
     lf = lock_path(slf)
     ok_flag = false
     try
-        _acquire_lock(lf, lkid; force, vtime, wt, tout)
+        _acquire_lock(lf, lkid; force, vtime, wt, tout, ctime)
         f()
     finally
         ok_flag = _is_locked(lf, lkid)

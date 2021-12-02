@@ -207,7 +207,7 @@ function lock(
         f()
     finally
         ok_flag = _is_locked(lf, lkid)
-        _unlock(lf, lkid)
+        ok_flag && _unlock(lf, lkid)
     end
     
     return ok_flag

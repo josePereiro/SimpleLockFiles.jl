@@ -16,6 +16,18 @@ isfile(slf::SimpleLockFile) = isfile(lock_path(slf))
 import Base.rm
 rm(slf::SimpleLockFile; kwargs...) = rm(lock_path(slf); kwargs...)
 
+import Base.basename
+basename(slf::SimpleLockFile) = basename(lock_path(slf))
+
+import Base.dirname
+dirname(slf::SimpleLockFile) = dirname(dirname(lock_path(slf)))
+
+
+import Base.mkpath
+mkpath(slf::SimpleLockFile) = mkpath(dirname(lock_path(slf)))
+
+
+
 # ----------------------------------------------------------------------
 # id
 const _lock_path_SEP = ","
@@ -38,6 +50,7 @@ function _write_lock_file(lf::String;
         lkid::String = rand_lkid(), 
         vtime::Float64 = _LOCK_DFT_VALID_TIME
     )
+    mkpath(dirname(lf))
     ttag = time() + vtime
     write(lf, string(lkid, _lock_path_SEP, ttag))
     return (lkid, ttag)

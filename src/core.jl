@@ -73,7 +73,7 @@ function is_locked(lf::String, lkid::String)
 
     # del if invalid
     if !_is_valid_ttag(ttag)
-        rm(lf; force = true)
+        _force_unlock(lf)
         return false
     end
 
@@ -85,15 +85,23 @@ is_locked(slf::SimpleLockFile, lkid::String) = is_locked(lock_path(slf), lkid)
 
 # ----------------------------------------------------------------------
 # release
-
-function release_lock(lf::String, lkid::String)
+function _unlock(lf::String, lkid::String)
     !isfile(lf) && return false
     !is_locked(lf, lkid) && return false
-    isfile(lf) && rm(lf; force = true)
+    _force_unlock(lf)
     return true
 end
 
-release_lock(slf::SimpleLockFile, lkid::String) = release_lock(lock_path(slf), lkid)
+import Base.unlock
+unlock(slf::SimpleLockFile, lkid::String) = _unlock(lock_path(slf), lkid)
+
+# ----------------------------------------------------------------------
+# force_unlock
+function _force_unlock(lf::String) 
+    isfile(lf) && rm(lf; force = true)
+    return nothing
+end
+force_unlock(slf::SimpleLockFile) = _force_unlock(lock_path(slf))
 
 # ----------------------------------------------------------------------
 # acquire_lock
@@ -114,7 +122,7 @@ function _acquire(lf::String, lkid::String = rand_lkid();
             end
         else
             # del if invalid
-            rm(lf; force = true)
+            _force_unlock(lf)
         end
     end
     return _write_lock_file(lf; lkid, vtime)
@@ -133,7 +141,7 @@ function acquire_lock(lf::String, lkid::String = rand_lkid();
             !isempty(lkid0) && return (lkid, ttag)
             if (time() - t0) > tout 
                 if force 
-                    rm(lf; force)
+                    _force_unlock(lf)
                     return _acquire(lf, lkid; vtime)
                 else
                     return ("", ttag)
@@ -142,7 +150,7 @@ function acquire_lock(lf::String, lkid::String = rand_lkid();
             sleep(wt)
         end
     else
-        force && rm(lf; force)
+        force && _force_unlock(lf)
         return _acquire(lf, lkid; vtime)
     end
 end
@@ -161,13 +169,14 @@ import Base.lock
         force = false
     )
 
-acquire_lock the lock, execute `f()` with the lock held, and release the lock when f returns.
+Acquire the lock, execute `f()` with the lock held, and release the lock when f returns.
 If the lock is already locked by a different `lkid`, wait (till `tout`) for it to become available.
 During waiting, it will sleep `wt` seconds before re-attemping to acquire_lock.
 If `force = true` it will acquire_lock the lock after `tout`.
 This method is not fully secure to race, but it must be ok for sllow applications.
 Returns `true` if the lock
     
+WARNING: If `f` execution time if greater than `vtime`, the lock could be acquire by other owner.
 """
 function lock(
         f::Function, slf::SimpleLockFile, lkid::String = rand_lkid();
@@ -183,7 +192,7 @@ function lock(
         f()
     finally
         ok_flag = is_locked(lf, lkid)
-        release_lock(lf, lkid)
+        _unlock(lf, lkid)
         return ok_flag
     end
 

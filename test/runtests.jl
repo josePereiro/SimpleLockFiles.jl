@@ -47,7 +47,7 @@ using Test
 
     # Test release
     @test SLF.is_locked(slf, lid4)
-    @test SLF.release_lock(slf, lid4)
+    @test SLF.unlock(slf, lid4)
     @test !SLF.is_locked(slf, lid4)
     @test !isfile(slf)
 

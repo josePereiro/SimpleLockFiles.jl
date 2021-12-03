@@ -7,13 +7,14 @@ end
 let
     @info("Running race tests")
     lkfn = joinpath(@__DIR__, "lock")
-    sumfn = joinpath(@__DIR__, "sum.txt")
+    valfn = joinpath(@__DIR__, "sum.txt")
     try
         script = joinpath(@__DIR__, "race_script.jl")
         @assert isfile(script)
-
-        rm(sumfn; force = true)
+        
+        rm(valfn; force = true)
         rm(lkfn; force = true)
+        write(valfn, "0")
 
         currptoj = Base.current_project(@__DIR__)
         proc = nothing
@@ -28,13 +29,13 @@ let
         N = nprocs * 100 # Each proc should add 100 to val
         while true
             sleep(1.0)
-
-            mt = mtime(sumfn)
+            
+            val = _read(valfn)
+            mt = mtime(valfn)
             iszero(mt) && continue
-            (mt == mt0) && break
+            val != 0 && (mt == mt0) && break
             mt0 = mt
 
-            val = _read(sumfn)
             print(val, "/", N, "\r")
         end
         println(val, "/", N)
@@ -42,6 +43,6 @@ let
     
     finally
         rm(lkfn; force = true)
-        rm(sumfn; force = true)
+        rm(valfn; force = true)
     end
 end

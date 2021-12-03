@@ -141,12 +141,9 @@ function _acquire(lf::String, lkid::String = rand_lkid();
         
         # check if is taken
         if _is_valid_ttag(ttag)
-            
-            if curr_lid == lkid
-                return (curr_lid, ttag) # is mine
-            else
-                return ("", ttag) # is taken
-            end
+            return (curr_lid == lkid) ? 
+                (curr_lid, ttag) : # is mine
+                ("", ttag) # is taken
         else
             # del if invalid
             _force_unlock(lf)

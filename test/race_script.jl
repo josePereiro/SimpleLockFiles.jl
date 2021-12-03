@@ -4,7 +4,7 @@ using SimpleLockFiles
 function _read(valfn)
     try; return parse(Int, read(valfn, String))
     catch ingored end
-    return 0
+    return -1
 end
 
 function _write(valfn, val)
@@ -12,7 +12,6 @@ function _write(valfn, val)
     catch ingored end
     return nothing
 end
-
 
 ## ----------------------------------------
 let

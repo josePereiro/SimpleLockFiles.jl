@@ -1,5 +1,7 @@
 module SimpleLockFiles
 
+import Random: randstring
+
 include("core.jl")
 
 export SimpleLockFile

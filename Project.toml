@@ -3,6 +3,9 @@ uuid = "0c975e61-21d9-4454-8de5-ff08fd2c478f"
 authors = ["josePereiro <jose.pereiro.lab@gmail.com> and contributors"]
 version = "0.4.3"
 
+[deps]
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
 [compat]
 julia = "1.6"
 

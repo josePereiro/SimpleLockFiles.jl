@@ -67,7 +67,7 @@ let
     lkid7 = SLF.rand_lkid()
     run_test = false
     ok_flag = lock(slf, lkid7; vtime = 15.0) do
-        SLF.unlock(slf, "No $(lkid7)") # this must do nohthing
+        SLF.unlock(slf, "No $(lkid7)") # this must do nothing
         @test SLF.is_locked(slf, lkid7)
         SLF.force_unlock(slf) # Boom
         @test !isfile(slf) # Now must be free

@@ -39,9 +39,10 @@ _validate_id(lock_id::String) =
         error("Separator '", _LOCK_FILE_SEP, "' found in the lock id")
 
 
-const _LOCK_DFT_TIME_OUT = 0.0
+# all in seconds
+const _LOCK_DFT_TIME_OUT = Inf 
 const _LOCK_DFT_WAIT_TIME = 1.0
-const _LOCK_DFT_VALID_TIME = 30.0
+const _LOCK_DFT_VALID_TIME = Inf
 const _LOCK_DFT_CHECK_TIME = 0.1
 
 function _write_lock_file(lf::String;
@@ -218,12 +219,11 @@ During waiting, it will sleep `wtime` seconds before re-attempting to acquire th
 Once acquired the lock the method will wait `ctime` and double check that it is still secure (to reduce races).
 The acquisition will take at least `ctime` seconds and if the double check fails it will keep attempting it till `tout`.
 If acquired, the lock will be consider valid for `vtime` seconds (no other process/thread asking politely for the lock should get it).
-(_**WARNING**_: If `f()` execution time is greater than `vtime`, the lock can be acquired legally by other owner before it finished).
+(_**WARNING**_: If `f()` execution time is greater than `vtime`, the lock can be acquired legally by other owner before it finished. Set `vtime` to `Inf` for avoiding this).
 If `force = true` it will forcefully acquire the lock anyway (after `tout`) and then executes `f()` (this is a deadlock free configuration).
 This method is not fully secure from racing, but it must be ok for slow applications.
 Returns `true` if the locking process was successful (`f()` finished and the lock is still valid).
 """
-
 function lock(
         f::Function, slf::SimpleLockFile, lkid::String = rand_lkid();
         vtime = _LOCK_DFT_VALID_TIME, 

@@ -33,7 +33,7 @@ try
     println("Hi from ", getpid())
 
     # must match the values on tace_test.jl
-    N = 10 
+    N = 50 
     lkfn = joinpath(@__DIR__, "lock")
     valfn = joinpath(@__DIR__, "sum.txt")
     logfn = joinpath(@__DIR__, "log.txt")
@@ -44,7 +44,7 @@ try
     t0 = time()
     frec = 0.0
     
-    lock_kwargs = (;tout = 10.0, vtime = 1.0, wtime = 0.1, ctime = 0.5, force = false)
+    lock_kwargs = (;tout = Inf, vtime = Inf, wtime = 0.001, ctime = 0.05, force = false)
     while true
         lkid = string("PROC-", getpid(), "-", it)
         println("Iter init", lkid)
@@ -68,7 +68,7 @@ try
         sleep(0.1 * rand())
     end # while true
     
-    msg = string("pid: ", getpid(), ", it: ", it, ", val: ", val, " GOOD BYE")
+    msg = string("pid: ", getpid(), ", it: ", it, ", val: ", val, " GOOD BYE, MY WORK IS DONE!")
     _append(logfn, msg); println(msg); flush.([stdout, stderr])
 
 catch err

@@ -143,6 +143,7 @@ force_unlock(slf::SimpleLockFile) = _force_unlock(lock_path(slf))
 # ----------------------------------------------------------------------
 # acquire_lock
 
+# TODO: make it return (tryid, ownerid, ttag)
 function _acquire(lf::String, lkid::String = rand_lkid();
         vtime = _LOCK_DFT_VALID_TIME
     )
@@ -198,7 +199,8 @@ function _acquire_lock(lf::String, lkid::String = rand_lkid();
     end
 end
 
-acquire_lock(slf::SimpleLockFile, lkid::String = rand_lkid(); kwargs...) = _acquire_lock(lock_path(slf), lkid; kwargs...)
+acquire_lock(slf::SimpleLockFile, lkid::String = rand_lkid(); kwargs...) = 
+    _acquire_lock(lock_path(slf), lkid; kwargs...)
 
 # ----------------------------------------------------------------------
 # Base.lock

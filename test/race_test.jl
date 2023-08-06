@@ -39,13 +39,13 @@ let
         # wait
         mt0 = -1
         val = 0
-        N = nprocs * 10 # must match the values on race_script.jl
+        N = nprocs * 50 # must match the value N on race_script.jl
         
         @info("Reading")
         print(val, "/", N, "\r")
         for _ in 1:nprocs
             while true
-                sleep(5.0)
+                sleep(1.0)
                 
                 val = _read(valfn)
                 mt = mtime(valfn)

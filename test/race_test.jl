@@ -32,7 +32,7 @@ let
             # run(`bash -c $(jlsrc)`; wait = false)
             
             julia_cmd = Base.julia_cmd()
-            run(`$(julia_cmd) --project=$(currptoj) --startup-file=no $(script)`; wait = false)
+            run(`$(julia_cmd) -t1 -O0 --project=$(currptoj) --startup-file=no $(script)`; wait = false)
             
             sleep(0.1)
         end

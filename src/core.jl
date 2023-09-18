@@ -89,15 +89,20 @@ end
 # ----------------------------------------------------------------------
 # islocked
 
-_is_valid_ttag(ttag) = ttag > time()
+_is_valid_ttag(ttag::Number) = ttag > time()
+_is_valid_ttag(ttag) = false
 
-function _islocked(lf::AbstractString, lkid::AbstractString;
+const _LOCKED_BY_OTHER = -1
+const _LOCKED_BY_ME = 1
+const _UNLOCKED = 0
+
+function _lock_status(lf::AbstractString, lkid::AbstractString;
         lread = nothing, 
         lmtime = nothing
     )
 
     # check file
-    !isfile(lf) && return false
+    !isfile(lf) && return _UNLOCKED
     
     # read if necesary or modify
     curr_lid, ttag = _read_lock_file_if_necesary(lf, lread, lmtime)
@@ -105,28 +110,38 @@ function _islocked(lf::AbstractString, lkid::AbstractString;
     # del if invalid
     if !_is_valid_ttag(ttag)
         _unlock(lf, lkid; force = true)
-        return false
+        return _UNLOCKED
     end
 
-    # test
-    return lkid == curr_lid
+    # test mine or someone else
+    return lkid == curr_lid ? _LOCKED_BY_ME : _LOCKED_BY_OTHER
 end
 
 import Base.islocked
 """
     islocked(slf::SimpleLockFile, lkid::AbstractString)::Bool
 
-Check if the lock is valid and is owned by `lkid`
+Check if the lock is still valid and owned by `lkid`
 """
-Base.islocked(slf::SimpleLockFile, lkid::AbstractString = rand_lkid()) = _islocked(lock_path(slf), lkid)
+Base.islocked(slf::SimpleLockFile, lkid::AbstractString) = 
+    _lock_status(lock_path(slf), lkid) == _LOCKED_BY_ME
 
+"""
+    islocked(slf::SimpleLockFile, lkid::AbstractString)::Bool
+
+Check if the lock is still valid. Ignore any id.
+"""
+Base.islocked(slf::SimpleLockFile) = 
+    _lock_status(lock_path(slf), "") != _UNLOCKED
+
+# ----------------------------------------------------------------------
+# islocked
 # ----------------------------------------------------------------------
 # unlock
 function _unlock(lf::AbstractString, lkid::AbstractString; force = false)
     force && rm(lf; force = true)
-    force && return true
-    !isfile(lf) && return false
-    !_islocked(lf, lkid) && return false
+    isfile(lf) || return true
+    _lock_status(lf, lkid)  == _LOCKED_BY_ME || return false
     rm(lf; force = true)
     return true
 end
@@ -136,6 +151,7 @@ import Base.unlock
     unlock(slf::SimpleLockFile, lkid::AbstractString)
 
 Releases ownership of the lock (if `lkid` is valid).
+Return true is succeded. 
 """
 Base.unlock(slf::SimpleLockFile, lkid::AbstractString = rand_lkid(); force = false) = 
     _unlock(lock_path(slf), lkid; force)
@@ -184,7 +200,7 @@ function _acquire_lock(lf::AbstractString, lkid::AbstractString = rand_lkid();
         lkid, lkid0, _ = _try_acquire_once(lf, lkid; vtime, lread, lmtime)
         if lkid == lkid0
             sleep(ctime) # wait before confirm
-            _islocked(lf, lkid; lread, lmtime) && return true
+            _lock_status(lf, lkid; lread, lmtime) == 1 && return true
         end
         time() - t0 > tout && break
         sleep(wtime)
@@ -232,10 +248,10 @@ function Base.lock(
     ok_flag = false
     try
         _acquire_lock(lf, lkid; force, vtime, wtime, tout, ctime)
-        ok_flag = _islocked(lf, lkid)
+        ok_flag = _lock_status(lf, lkid) == _LOCKED_BY_ME
         ok_flag && f()
     finally
-        ok_flag = _islocked(lf, lkid)
+        ok_flag = _lock_status(lf, lkid) == _LOCKED_BY_ME
         _unlock(lf, lkid)
     end
     

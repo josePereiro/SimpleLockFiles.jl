@@ -1,4 +1,5 @@
 #TODO: add callbacks (eg. onwaiting, ontout, etc...)
+#TODO: add etime (error time), after such time, if the lock is stil... well locked, throw an error
 module SimpleLockFiles
 
     import Random: randstring

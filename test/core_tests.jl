@@ -23,9 +23,8 @@ let
     
     tout = vtime / 10.0
     @assert vtime > tout
-    lid4, ttag4 = SLF.acquire_lock(slf; tout, force = false) # This must be taken
-    @test isempty(lid4)
-    @test ttag3 == ttag4
+    ok_flag = SLF.acquire_lock(slf; tout, force = false) # This must be taken
+    @test !ok_flag
     
     sleep(1.3 * vtime) # expire lock
     
@@ -33,14 +32,16 @@ let
     @test !isfile(slf) # is_locked must delete an invalid lock file
     
     vtime = 50.0
-    lid4, ttag4 = SLF.acquire_lock(slf; vtime) # This must be free
-    @test lid4 != lid3
+    ok_flag = SLF.acquire_lock(slf; vtime) # This must be free
+    @test ok_flag
+    lid4, ttag4 = SLF.read_lock_file(slf)
     @test ttag4 > ttag3
     @test isfile(slf)
     
     # test wait
-    lid5, ttag5 = SLF.acquire_lock(slf; tout = 2.0, force = false) # This must fail
-    @test isempty(lid5)
+    ok_flag = SLF.acquire_lock(slf; tout = 2.0, force = false) # This must fail
+    @test !ok_flag
+    _, ttag5 = SLF.read_lock_file(slf)
     @test ttag4 == ttag5
     
     # Test release

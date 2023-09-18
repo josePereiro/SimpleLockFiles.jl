@@ -40,7 +40,7 @@ _validate_id(lock_id::AbstractString) =
 
 # all in seconds
 const _LOCK_DFT_TIME_OUT = Inf 
-const _LOCK_DFT_WAIT_TIME = 1.0
+const _LOCK_DFT_WAIT_TIME = 0.3
 const _LOCK_DFT_VALID_TIME = Inf
 const _LOCK_DFT_CHECK_TIME = 0.1
 

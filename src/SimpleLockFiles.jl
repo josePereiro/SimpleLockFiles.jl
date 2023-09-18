@@ -8,7 +8,6 @@ module SimpleLockFiles
 
     export SimpleLockFile
     export lock_path, rand_lkid
-    export acquire_lock, force_unlock, unlock
-    export lock
+    export write_lock_file, read_lock_file
 
 end

@@ -43,7 +43,7 @@ let
         
         @info("Reading")
         print(val, "/", N, "\r")
-        for _ in 1:nprocs
+        @time for _ in 1:nprocs
             while true
                 sleep(1.0)
                 
@@ -55,12 +55,15 @@ let
 
                 print(val, "/", N, "\r")
             end
-            (val == N) && break
+            if (val == N) 
+                println(val, "/", N, "       ")
+                break
+            end
 
             println(val, "/", N)
             println("waiting...")
+            sleep(3.0)
         end
-        println(val, "/", N)
         ok_res = val >= N * 0.99 # > 99% success
         @test ok_res
 

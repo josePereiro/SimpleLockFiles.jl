@@ -44,12 +44,12 @@ try
     t0 = time()
     frec = 0.0
     
-    lock_kwargs = (;time_out = Inf, valid_time = Inf, retry_time = 1e-2, recheck_time = 1e-3, force = false)
     while true
         # lkid = string("PROC-", getpid(), "-", it)
         # println("Iter init", lkid)
         ok_flag = Ref{Bool}()
-        lock(slf; ok_flag, lock_kwargs...) do
+        # Test default lock
+        lock(slf; ok_flag) do
 
             touch(valfn)
             val = _read(valfn)

@@ -1,38 +1,26 @@
 # ----------------------------------------------------------------------
 # type
-struct SimpleLockFile
+struct SimpleLockFile <: Base.AbstractLock
     path::AbstractString
 end
-SimpleLockFile() = SimpleLockFile(tempname())
-
-lock_path(slf::SimpleLockFile) = slf.path
 
 # ----------------------------------------------------------------------
-# Base
-import Base.isfile
-isfile(slf::SimpleLockFile) = isfile(lock_path(slf))
-
-import Base.rm
-rm(slf::SimpleLockFile; kwargs...) = rm(lock_path(slf); kwargs...)
-
-import Base.basename
-basename(slf::SimpleLockFile) = basename(lock_path(slf))
-
-import Base.dirname
-dirname(slf::SimpleLockFile) = dirname(dirname(lock_path(slf)))
-
-import Base.mkpath
-mkpath(slf::SimpleLockFile) = mkpath(dirname(lock_path(slf)))
+# lkid
+function _currtask_id(pid::Integer, thr::Integer, t::Task)
+    # task 
+    # from show(stdout, t::Task)
+    ref = string(convert(UInt, pointer_from_objref(t)), base = 16, pad = Sys.WORD_SIZE>>2)
+    _task_str = string("tsk_@0x", ref)
+    # pid
+    _pid_str = string("pid_", pid)
+    # thread
+    _thr_str = string("thr_", thr)
+    return string(_pid_str, "_", _thr_str, "_", _task_str)
+end
 
 # ----------------------------------------------------------------------
-# id
-rand_lkid(n = 10) = randstring(n)
-
-# ----------------------------------------------------------------------
-# write
-
-const _LOCK_FILE_SEP = ","
-
+# _lock_file
+const _LOCK_FILE_SEP = "^^"
 _validate_id(lock_id::AbstractString) = 
     contains(lock_id, _LOCK_FILE_SEP) && 
         error("Separator '", _LOCK_FILE_SEP, "' found in the lock id")
@@ -40,25 +28,22 @@ _validate_id(lock_id::AbstractString) =
 
 # all in seconds
 const _LOCK_DFT_TIME_OUT = Inf 
-const _LOCK_DFT_WAIT_TIME = 0.3
+const _LOCK_DFT_RETRY_TIME = 0.3
 const _LOCK_DFT_VALID_TIME = Inf
 const _LOCK_DFT_CHECK_TIME = 0.1
 
+# write
 function _write_lock_file(lf::AbstractString;
-        lkid::AbstractString = rand_lkid(), 
-        vtime::Float64 = _LOCK_DFT_VALID_TIME
+        lkid::AbstractString = currtask_id(), 
+        valid_time::Float64 = _LOCK_DFT_VALID_TIME
     )
     _validate_id(lkid)
     mkpath(dirname(lf))
-    ttag = time() + vtime
+    ttag = time() + valid_time
     write(lf, string(lkid, _LOCK_FILE_SEP, ttag))
     return (lkid, ttag)
 end
 
-write_lock_file(slf::SimpleLockFile; kwargs...) = 
-    _write_lock_file(lock_path(slf); kwargs...)
-
-# ----------------------------------------------------------------------
 # read
 function _tryparse(type::Type{T}, str::AbstractString, dft::T) where {T}
     val = tryparse(type, str)
@@ -74,12 +59,11 @@ function _read_lock_file(lf::AbstractString)
         lkid, ttag_str = spt
         ttag = _tryparse(Float64, ttag_str, -1.0)
         return (lkid, ttag)
-    catch ignore; end
+    catch; end
     return ("", -1.0)
 end
-read_lock_file(slf::SimpleLockFile) = _read_lock_file(lock_path(slf))
 
-# ----------------------------------------------------------------------
+
 function _read_lock_file_if_necesary(lf, lread, lmtime)
     needread = isnothing(lread) # no data provided
     needread |= (lmtime != mtime(lf)) # or file changed
@@ -87,7 +71,7 @@ function _read_lock_file_if_necesary(lf, lread, lmtime)
 end
 
 # ----------------------------------------------------------------------
-# islocked
+# _lock_status
 
 _is_valid_ttag(ttag::Number) = ttag > time()
 _is_valid_ttag(ttag) = false
@@ -117,27 +101,8 @@ function _lock_status(lf::AbstractString, lkid::AbstractString;
     return lkid == curr_lid ? _LOCKED_BY_ME : _LOCKED_BY_OTHER
 end
 
-import Base.islocked
-"""
-    islocked(slf::SimpleLockFile, lkid::AbstractString)::Bool
-
-Check if the lock is still valid and owned by `lkid`
-"""
-Base.islocked(slf::SimpleLockFile, lkid::AbstractString) = 
-    _lock_status(lock_path(slf), lkid) == _LOCKED_BY_ME
-
-"""
-    islocked(slf::SimpleLockFile, lkid::AbstractString)::Bool
-
-Check if the lock is still valid. Ignore any id.
-"""
-Base.islocked(slf::SimpleLockFile) = 
-    _lock_status(lock_path(slf), "") != _UNLOCKED
-
 # ----------------------------------------------------------------------
-# islocked
-# ----------------------------------------------------------------------
-# unlock
+# _unlock
 function _unlock(lf::AbstractString, lkid::AbstractString; force = false)
     force && rm(lf; force = true)
     isfile(lf) || return true
@@ -146,47 +111,39 @@ function _unlock(lf::AbstractString, lkid::AbstractString; force = false)
     return true
 end
 
-import Base.unlock
-"""
-    unlock(slf::SimpleLockFile, lkid::AbstractString)
-
-Releases ownership of the lock (if `lkid` is valid).
-Return true is succeded. 
-"""
-Base.unlock(slf::SimpleLockFile, lkid::AbstractString = rand_lkid(); force = false) = 
-    _unlock(lock_path(slf), lkid; force)
-
 # ----------------------------------------------------------------------
-# acquire_lock
+# _try_lock
 
 # TODO: make it return (tryid, ownerid, ttag)
-function _try_acquire_once(lf::AbstractString, lkid::AbstractString = rand_lkid();
-        vtime = _LOCK_DFT_VALID_TIME, 
+function _try_lock(lf::AbstractString, lkid::AbstractString;
+        valid_time = _LOCK_DFT_VALID_TIME, 
         lread = nothing, 
         lmtime = nothing
     )
     if isfile(lf)
-        curr_lid, ttag = _read_lock_file_if_necesary(lf, lread, lmtime)
-        
-        # check if is taken
+        lkid0, ttag = _read_lock_file_if_necesary(lf, lread, lmtime)
+        # check if it is taken
         if _is_valid_ttag(ttag)
             # (tryid, ownerid, ttag)
-            return (lkid, curr_lid, ttag)
+            return (lkid, lkid0, ttag)
         else
             # del if invalid
             _unlock(lf, lkid; force = true)
         end
     end
-    lkid, ttag = _write_lock_file(lf; lkid, vtime)
+    lkid, ttag = _write_lock_file(lf; lkid, valid_time)
     # (tryid, ownerid, ttag)
     return (lkid, lkid, ttag)
 end
 
-function _acquire_lock(lf::AbstractString, lkid::AbstractString = rand_lkid();
-        vtime = _LOCK_DFT_VALID_TIME, 
-        wtime = _LOCK_DFT_WAIT_TIME, 
-        tout = _LOCK_DFT_TIME_OUT,
-        ctime = _LOCK_DFT_CHECK_TIME,
+# ----------------------------------------------------------------------
+# _acquire_lock
+
+function _acquire_lock(lf::AbstractString, lkid::AbstractString;
+        valid_time = _LOCK_DFT_VALID_TIME, 
+        retry_time = _LOCK_DFT_RETRY_TIME, 
+        time_out = _LOCK_DFT_TIME_OUT,
+        recheck_time = _LOCK_DFT_CHECK_TIME,
         force = false
     )
     # starting file state
@@ -195,68 +152,19 @@ function _acquire_lock(lf::AbstractString, lkid::AbstractString = rand_lkid();
 
     # starting file state
     t0 = time()
-    # try to _acquire till tout
-    while tout > 0.0
-        lkid, lkid0, _ = _try_acquire_once(lf, lkid; vtime, lread, lmtime)
+    # try to _acquire till time_out
+    while time_out > 0.0
+        lkid, lkid0, _ = _try_lock(lf, lkid; valid_time, lread, lmtime)
         if lkid == lkid0
-            sleep(ctime) # wait before confirm
-            _lock_status(lf, lkid; lread, lmtime) == 1 && return true
+            sleep(recheck_time) # wait before confirm
+            _lock_status(lf, lkid; lread, lmtime) == _LOCKED_BY_ME && return true
         end
-        time() - t0 > tout && break
-        sleep(wtime)
+        time() - t0 > time_out && break
+        sleep(retry_time)
     end
     !force && return false
-    # tout < 0.0 || force && tout
+    # time_out < 0.0 || force && time_out
     _unlock(lf, lkid; force)
-    lkid, lkid0, _ = _try_acquire_once(lf, lkid; vtime, lread, lmtime)
+    lkid, lkid0, _ = _try_lock(lf, lkid; valid_time, lread, lmtime)
     return lkid0 == lkid
 end
-
-# ----------------------------------------------------------------------
-# Base.lock
-import Base.lock
-"""
-    lock(f::Function, slf::SimpleLockFile, lkid::AbstractString = rand_lkid(); 
-        vtime = $(_LOCK_DFT_VALID_TIME), 
-        wtime = $(_LOCK_DFT_WAIT_TIME), 
-        tout = $(_LOCK_DFT_TIME_OUT),
-        ctime = $(_LOCK_DFT_CHECK_TIME),
-        force = false
-    )
-
-Acquire the lock, execute `f()` with the lock held, and release the lock when f returns.
-If the lock is already locked by a different `lkid`, the method waits for it to become available and then executes `f()`.
-During waiting, it will sleep `wtime` seconds before re-attempting to acquire the lock again and again till `tout` seconds elapsed.
-Once acquired the lock the method will wait `ctime` and double check that it is still secure (to reduce races).
-The acquisition will take at least `ctime` seconds and if the double check fails it will keep attempting it till `tout`.
-If acquired, the lock will be consider valid for `vtime` seconds (no other process/thread asking politely for the lock should get it).
-(_**WARNING**_: If `f()` execution time is greater than `vtime`, the lock can be acquired legally by other owner before it finished. Set `vtime` to `Inf` for avoiding this).
-If `force = true` it will forcefully acquire the lock anyway (after `tout`) and then executes `f()` (this is a deadlock free configuration).
-This method is not fully secure from racing, but it must be ok for slow applications.
-Returns `true` if the locking process was successful (`f()` finished and the lock is still valid).
-"""
-function Base.lock(
-        f::Function, slf::SimpleLockFile, lkid::AbstractString = rand_lkid();
-        vtime = _LOCK_DFT_VALID_TIME, 
-        wtime = _LOCK_DFT_WAIT_TIME, 
-        tout = _LOCK_DFT_TIME_OUT,
-        ctime = _LOCK_DFT_CHECK_TIME,
-        force = false
-    )
-
-    lf = lock_path(slf)
-    ok_flag = false
-    try
-        _acquire_lock(lf, lkid; force, vtime, wtime, tout, ctime)
-        ok_flag = _lock_status(lf, lkid) == _LOCKED_BY_ME
-        ok_flag && f()
-    finally
-        ok_flag = _lock_status(lf, lkid) == _LOCKED_BY_ME
-        _unlock(lf, lkid)
-    end
-    
-    return ok_flag
-end
-
-Base.lock(slf::SimpleLockFile, lkid::AbstractString = rand_lkid(); kwargs...) = 
-    _acquire_lock(lock_path(slf), lkid; kwargs...)

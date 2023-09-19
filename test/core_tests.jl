@@ -13,34 +13,37 @@ let
     @test ttag1 == ttag2
     
     # Test valid period
-    vtime = 3.0
-    lid3, ttag3 = write_lock_file(slf; vtime)
+    valid_time = 3.0
+    lid3, ttag3 = write_lock_file(slf; valid_time)
     @test !isempty(lid3)
     @test ttag3 > time()
     @test isfile(slf)
     
     @test islocked(slf, lid3)
     
-    tout = vtime / 10.0
-    @assert vtime > tout
-    ok_flag = lock(slf; tout, force = false) # This must be taken
-    @test !ok_flag
+    time_out = valid_time / 10.0
+    @assert valid_time > time_out
+    ok_flag = Ref{Bool}()
+    lock(slf, "IMPOSTOR!"; ok_flag, time_out, force = false) # This must be taken
+    @test !ok_flag[]
     
-    sleep(1.3 * vtime) # expire lock
+    sleep(1.3 * valid_time) # expire lock
     
     @test !islocked(slf, lid3)
     @test !isfile(slf) # islocked must delete an invalid lock file
     
-    vtime = 50.0
-    ok_flag = lock(slf; vtime) # This must be free
-    @test ok_flag
+    valid_time = 50.0
+    ok_flag = Ref{Bool}()
+    lock(slf; ok_flag, valid_time) # This must be free
+    @test ok_flag[]
     lid4, ttag4 = read_lock_file(slf)
     @test ttag4 > ttag3
     @test isfile(slf)
     
     # test wait
-    ok_flag = lock(slf; tout = 2.0, force = false) # This must fail
-    @test !ok_flag
+    ok_flag = Ref{Bool}()
+    lock(slf, "IMPOSTOR!"; ok_flag, time_out = 2.0, force = false) # This must fail
+    @test !ok_flag[]
     _, ttag5 = read_lock_file(slf)
     @test ttag4 == ttag5
     
@@ -51,9 +54,10 @@ let
     @test !isfile(slf)
     
     # base.lock
-    lkid6 = rand_lkid()
+    lkid6 = currtask_id()
     run_test = false
-    ok_flag = lock(slf, lkid6; vtime = 5.0) do
+    ok_flag = Ref{Bool}()
+    lock(slf, lkid6; ok_flag, valid_time = 5.0) do
         # all this time the lock is taken
         for it in 1:10
             @test islocked(slf, lkid6)
@@ -62,14 +66,15 @@ let
             run_test = true
         end
     end
-    @test ok_flag # this must be a successful lock process
+    @test ok_flag[] # this must be a successful lock process
     @test run_test
     @test !isfile(slf) # released!
         
     # Test unlock forced unlock
-    lkid7 = rand_lkid()
+    lkid7 = currtask_id()
     run_test = false
-    ok_flag = lock(slf, lkid7; vtime = 15.0) do
+    ok_flag = Ref{Bool}()
+    lock(slf, lkid7; ok_flag, valid_time = 15.0) do
         unlock(slf, "No $(lkid7)") # this must do nothing
         @test islocked(slf, lkid7)
         unlock(slf; force = true) # Boom
@@ -78,7 +83,7 @@ let
         run_test = true
     end
     @test run_test
-    @test !ok_flag # The forced unlock invalidate the lock process
+    @test !ok_flag[] # The forced unlock invalidate the lock process
 
     # clear
     rm(slf; force = true)

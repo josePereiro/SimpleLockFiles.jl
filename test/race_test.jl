@@ -21,7 +21,7 @@ let
 
         currptoj = Base.current_project(@__DIR__)
         
-        nprocs = 20
+        nprocs = 10
         @info("Spawning $(nprocs) competing processes")
         for t in 1:nprocs
             

@@ -44,11 +44,12 @@ try
     t0 = time()
     frec = 0.0
     
-    lock_kwargs = (;tout = Inf, vtime = Inf, wtime = 0.001, ctime = 0.05, force = false)
+    lock_kwargs = (;time_out = Inf, valid_time = Inf, retry_time = 1e-2, recheck_time = 1e-1, force = false)
     while true
-        lkid = string("PROC-", getpid(), "-", it)
-        println("Iter init", lkid)
-        ok_flag = lock(slf, lkid; lock_kwargs...) do
+        # lkid = string("PROC-", getpid(), "-", it)
+        # println("Iter init", lkid)
+        ok_flag = Ref{Bool}()
+        lock(slf; ok_flag, lock_kwargs...) do
 
             touch(valfn)
             val = _read(valfn)
@@ -62,8 +63,7 @@ try
             t0 = time()
             it += 1
         end
-
-        println("Iter finished, ok_flag: ", ok_flag)
+        println("Iter finished, ok_flag: ", ok_flag[])
         it == N && break
         sleep(0.1 * rand())
     end # while true

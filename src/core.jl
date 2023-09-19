@@ -28,9 +28,9 @@ _validate_id(lock_id::AbstractString) =
 
 # all in seconds
 const _LOCK_DFT_TIME_OUT = Inf 
-const _LOCK_DFT_RETRY_TIME = 0.3
 const _LOCK_DFT_VALID_TIME = Inf
-const _LOCK_DFT_CHECK_TIME = 0.1
+const _LOCK_DFT_RETRY_TIME = 1e-2
+const _LOCK_DFT_RECHECK_TIME = 1e-3
 
 # write
 function _write_lock_file(lf::AbstractString;
@@ -143,7 +143,7 @@ function _acquire_lock(lf::AbstractString, lkid::AbstractString;
         valid_time = _LOCK_DFT_VALID_TIME, 
         retry_time = _LOCK_DFT_RETRY_TIME, 
         time_out = _LOCK_DFT_TIME_OUT,
-        recheck_time = _LOCK_DFT_CHECK_TIME,
+        recheck_time = _LOCK_DFT_RECHECK_TIME,
         force = false
     )
     # starting file state

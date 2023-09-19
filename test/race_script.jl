@@ -32,8 +32,8 @@ end
 try
     println("Hi from ", getpid())
 
-    # must match the values on tace_test.jl
-    N = 50 
+    
+    Ni = 100 # IMPORTANT: must be the same at race_test.jl
     lkfn = joinpath(@__DIR__, "lock")
     valfn = joinpath(@__DIR__, "sum.txt")
     logfn = joinpath(@__DIR__, "log.txt")
@@ -44,7 +44,7 @@ try
     t0 = time()
     frec = 0.0
     
-    lock_kwargs = (;time_out = Inf, valid_time = Inf, retry_time = 1e-2, recheck_time = 1e-1, force = false)
+    lock_kwargs = (;time_out = Inf, valid_time = Inf, retry_time = 1e-2, recheck_time = 1e-3, force = false)
     while true
         # lkid = string("PROC-", getpid(), "-", it)
         # println("Iter init", lkid)
@@ -64,7 +64,7 @@ try
             it += 1
         end
         println("Iter finished, ok_flag: ", ok_flag[])
-        it == N && break
+        it == Ni && break
         sleep(0.1 * rand())
     end # while true
     

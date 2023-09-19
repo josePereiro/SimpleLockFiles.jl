@@ -63,7 +63,7 @@ import Base.trylock
 
 function Base.trylock(slf::SimpleLockFile, lkid::AbstractString = currtask_id(); 
         valid_time = _LOCK_DFT_VALID_TIME, 
-        recheck_time = _LOCK_DFT_CHECK_TIME,
+        recheck_time = _LOCK_DFT_RECHECK_TIME,
     )
     lf = lock_path(slf)
     lkid, lkid0, _ = _try_lock(lf, lkid; valid_time)
@@ -78,7 +78,7 @@ import Base.lock
         valid_time = $(_LOCK_DFT_VALID_TIME), 
         retry_time = $(_LOCK_DFT_RETRY_TIME), 
         time_out = $(_LOCK_DFT_TIME_OUT),
-        recheck_time = $(_LOCK_DFT_CHECK_TIME),
+        recheck_time = $(_LOCK_DFT_RECHECK_TIME),
         force = false
     )
 
@@ -98,7 +98,7 @@ function Base.lock(
         valid_time = _LOCK_DFT_VALID_TIME, 
         retry_time = _LOCK_DFT_RETRY_TIME, 
         time_out = _LOCK_DFT_TIME_OUT,
-        recheck_time = _LOCK_DFT_CHECK_TIME,
+        recheck_time = _LOCK_DFT_RECHECK_TIME,
         ok_flag::Ref{Bool} = Ref{Bool}(),
         force = false
     )
@@ -119,7 +119,7 @@ function Base.lock(slf::SimpleLockFile, lkid::AbstractString = currtask_id();
         valid_time = _LOCK_DFT_VALID_TIME, 
         retry_time = _LOCK_DFT_RETRY_TIME, 
         time_out = _LOCK_DFT_TIME_OUT,
-        recheck_time = _LOCK_DFT_CHECK_TIME,
+        recheck_time = _LOCK_DFT_RECHECK_TIME,
         ok_flag::Ref{Bool} = Ref{Bool}(),
         force = false
     )

@@ -85,6 +85,43 @@ let
     @test run_test
     @test !ok_flag[] # The forced unlock invalidate the lock process
 
+    # Test Nested lock calls
+    # This differs from Base.lock stuff but at the end one 
+    # single task is accessing the locked data
+    # Same task
+    rm(slf; force = true)
+    @time for ti in 1:200
+        flags = []
+        lock(slf) do
+            lock(slf) do # This will be relocked
+                push!(flags, 1) # Must be first element
+            end
+            push!(flags, 2) # Must be second element
+        end 
+        @test issorted(flags)
+    end
+
+    # Multiple tasks
+    rm(slf; force = true)
+    @time for ti in 1:200
+        flags = []
+        t0 = lock(slf) do
+            _t0 = @async lock(slf) do # different task must wait
+                @async lock(slf) do # different task must wait
+                    @async lock(slf) do # different task must wait
+                        push!(flags, 4) 
+                    end
+                    push!(flags, 3) 
+                end
+                push!(flags, 2)
+            end
+            push!(flags, 1) # Must be first element
+            _t0
+        end 
+        wait(t0)
+        @test issorted(flags)
+    end
+
     # clear
     rm(slf; force = true)
 

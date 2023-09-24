@@ -4,7 +4,7 @@ authors = ["josePereiro <jose.pereiro.lab@gmail.com> and contributors"]
 version = "0.5.0"
 
 [deps]
-Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+FileWatching = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [compat]
 julia = "1.6"

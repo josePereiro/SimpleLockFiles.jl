@@ -4,13 +4,13 @@ module SimpleLockFiles
 
     # import Base.Threads: threadid
     # import Random: randstring
+    import FileWatching: Pidfile
 
-    # #! include .
-    # include("core.jl")
-    # include("interface.jl")
+    #! include .
+    include("core.jl")
+    include("interface.jl")
 
-    # export SimpleLockFile
-    # export lock_path, currtask_id
-    # export write_lock_file, read_lock_file
+    export SimpleLockFile
+    export lockpath
 
 end

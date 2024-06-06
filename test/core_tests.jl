@@ -18,7 +18,7 @@ let
 
         # Multithreaded threaded test
         # Single threaded test
-        Base.Threads.@threads for it in 1:100
+        Base.Threads.@threads :static for it in 1:100
             lock(slf) do
                 @test islocked(slf)
             end

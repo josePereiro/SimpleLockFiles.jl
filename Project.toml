@@ -1,7 +1,7 @@
 name = "SimpleLockFiles"
 uuid = "0c975e61-21d9-4454-8de5-ff08fd2c478f"
 authors = ["josePereiro <jose.pereiro.lab@gmail.com> and contributors"]
-version = "0.5.0"
+version = "0.6.0"
 
 [deps]
 FileWatching = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"

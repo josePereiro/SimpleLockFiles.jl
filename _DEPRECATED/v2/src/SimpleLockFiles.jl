@@ -4,7 +4,7 @@ module SimpleLockFiles
 
     # import Base.Threads: threadid
     # import Random: randstring
-    import FileWatching: Pidfile, mkpidlock, trymkpidlock
+    import FileWatching: Pidfile
 
     #! include .
     include("core.jl")

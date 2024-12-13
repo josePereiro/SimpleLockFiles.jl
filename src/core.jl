@@ -1,23 +1,13 @@
 # ----------------------------------------------------------------------
 # type
-struct SimpleLockFile <: Base.AbstractLock
+mutable struct SimpleLockFile <: Base.AbstractLock
     pidfile_path::AbstractString
     reelk::ReentrantLock
+    mon::Union{Pidfile.LockMonitor, Nothing}
     extras::Dict
 
-    SimpleLockFile(pidfile_path) = new(pidfile_path, ReentrantLock(), Dict())
-end
-
-function _check_validity(lkf::AbstractString)
-    pid, host, _ = Pidfile.parse_pidfile(lkf)
-    val = Pidfile.isvalidpid(host, pid)
-    val || rm(lkf; force = true)
-    return val
-end
-
-function _its_mypid(lkf::AbstractString)
-    pid, host, _ = Pidfile.parse_pidfile(lkf)
-    val = Pidfile.isvalidpid(host, pid)
-    val || rm(lkf; force = true)
-    return val ? getpid() == Int(pid) : false
+    function SimpleLockFile(pidfile_path) 
+        lk = new(pidfile_path, ReentrantLock(), nothing, Dict())
+        return lk
+    end
 end

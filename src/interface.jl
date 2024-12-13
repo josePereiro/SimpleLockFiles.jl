@@ -1,68 +1,89 @@
+# ----------------------------------------------------------------------
+# SimpleLockFile interface
+
 SimpleLockFile() = SimpleLockFile(tempname())
 
 lockpath(slf::SimpleLockFile) = slf.pidfile_path
 # For others to import
 lockpath!(slf::SimpleLockFile, fn::AbstractString) = error("SimpleLockFile is immutable")
 
+# ----------------------------------------------------------------------
+# defaults
+
+const SLF_DEAFAULT_STALE_AGE = 3.0
+const SLF_DEAFAULT_REFRESH_TIME = 1.0
+const SLF_DEAFAULT_PULL_INTERVAL = 0.5
+
+# ----------------------------------------------------------------------
+# Lock interface
+
 import Base.lock
-# lock both ReentrantLock and pidfile
-function Base.lock(f::Function, slf::SimpleLockFile; kwargs...)
-    return lock(slf.reelk) do
-        lkp = lockpath(slf)
-        # _its_mypid(lkp) && return f() # To allow nested locks
-        monitor = nothing
-        val = nothing
-        try
-            mkpath(slf)
-            monitor = Pidfile.mkpidlock(lkp; kwargs...) 
-            slf.extras["_Pidfile.LockMonitor"] = monitor
-            val = f()
-        finally
-            slf.extras["_Pidfile.LockMonitor"] = nothing
-            isnothing(monitor) || close(monitor)
-            # rm(slf; force = true)
-        end
-        return val
-    end
+function Base.lock(slf::SimpleLockFile;
+        stale_age = get(slf.extras, "stale_age", SLF_DEAFAULT_STALE_AGE)::Float64,
+        refresh = get(slf.extras, "refresh", SLF_DEAFAULT_REFRESH_TIME)::Float64,
+        poll_interval = get(slf.extras, "poll_interval", SLF_DEAFAULT_PULL_INTERVAL)::Float64,
+    )
+    # reelk
+    lock(slf.reelk) 
+
+    # pidfile
+    isnothing(slf.mon) || error("'lock' call without matching 'unlock'")
+    slf.mon = mkpidlock(slf.pidfile_path; stale_age, refresh, poll_interval) 
+    return slf
 end
 
-# lock both ReentrantLock and pidfile
-function Base.lock(slf::SimpleLockFile; kwargs...) 
-    lkp = lockpath(slf)
-    # _its_mypid(lkp) && return f() # To allow nested locks
-    # TODO: find a way to check if I have slf.reelk
-    mkpath(slf)
-    monitor = Pidfile.mkpidlock(lkp; kwargs...)
-    lock(slf.reelk) # TODO: test this with nested lock calls
-    slf.extras["_Pidfile.LockMonitor"] = monitor # see that slf.reelk is locked!
+import Base.lock
+function Base.unlock(slf::SimpleLockFile; force = false)
+
+    # pidfile
+    if isnothing(slf.mon) 
+        force && rm(slf.pidfile_path; force = true)
+        error("'unlock' call without matching 'lock'")
+    end
+    close(slf.mon)
+    force && rm(slf.pidfile_path; force = true)
+    slf.mon = nothing
+
+    # reelk
+    unlock(slf.reelk) 
+
     return slf
+end
+
+function Base.lock(f::Function, slf::SimpleLockFile; force = false, kwargs...)
+    try; lock(slf,; kwargs...)
+        return f()
+    finally
+        unlock(slf; force)
+    end
 end
 
 import Base.islocked
 function Base.islocked(slf::SimpleLockFile) 
-    islocked(slf.reelk) && return true
-    lkp = lockpath(slf)
-    val = _check_validity(lkp)
-    # check mine
-    lk = get(slf.extras, "_Pidfile.LockMonitor", nothing)
-    !isnothing(lk) && isopen(lk.fd) && return true 
-    # check other
-    return val
-end
+    # reelk
+    _islocked_reelk = islocked(slf.reelk)
+    
+    # pidfile
+    # Ignoring the monitor, all checks depending on the file
+    isfile(slf.pidfile_path) || return false 
+    # trymkpidlock return false if try failed
+    stale_age = get(slf.extras, "stale_age", SLF_DEAFAULT_STALE_AGE)::Float64
+    _islocked_pidfile = !trymkpidlock(slf.pidfile_path; stale_age) do
+        return true
+    end
 
-import Base.unlock
-function Base.unlock(slf::SimpleLockFile; force = false) 
-    lkp = lockpath(slf)
-    _check_validity(lkp) # rm if invalid
-    force && rm(lkp; force = true)
-    lk = get(slf.extras, "_Pidfile.LockMonitor", nothing)
-    islocked(slf.reelk) && unlock(slf.reelk)
-    isnothing(lk) && return 
-    close(lk)
+    (_islocked_pidfile === _islocked_reelk) || 
+        error(
+            "unvalid lock state!!!", 
+            " reelk, ", _islocked_reelk, 
+            ", pidfile: ", _islocked_pidfile
+        )
+    return _islocked_pidfile
 end
 
 # ----------------------------------------------------------------------
-# File handling
+# File interface
+
 import Base.isfile
 isfile(slf::SimpleLockFile) = isfile(lockpath(slf))
 

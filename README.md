@@ -4,14 +4,15 @@
 [![Coverage](https://codecov.io/gh/josePereiro/SimpleLockFiles.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/josePereiro/SimpleLockFiles.jl)
 
 
-It provide an object which implement the lock interface combining `ReentrantLock`s and `Pidfile`s.
-This way intra and inter processes locking is achived. 
+It provides an object which implement `Base` lock interface combining `ReentrantLock`s and `Pidfile`s.
+This way both intra and inter processes locking is achived. 
 
 ```julia
 using SimpleLockFiles
 using Base.Threads
 
-lk = SimpleLockFile() # by default it creates a temp file
+path = joinpath(@__DIR__, ".lock")
+lk = SimpleLockFile(path) 
 
 @threads for it in 1:10
     lock(lk) do # 
@@ -21,13 +22,14 @@ lk = SimpleLockFile() # by default it creates a temp file
 end
 ```
 
-If the above code is the content of `test.jl`, you can run the follow test:
+If the above code is the content of `test.jl`, you can run the follow test.
 
 ```bash
-# You will see that the print run in serie, even there are two processes and each one is threaded.
-julia -t2 --project test.jl & ; julia -t2 --project test.jl & 
+julia -t2 test.jl & ; julia -t2 test.jl & 
 ```
-Output: 
+
+You will see that the print run in serie, even if there are two processes and each one is threaded. Output: 
+
 ```bash
 7::20386
 8::20386

@@ -6,6 +6,12 @@ let
     try        
         slf = SimpleLockFile(lkfn)
         @test lockpath(slf) == lkfn
+
+        # Nested locking is not allowed
+        @test_throws SimpleLockFileError lock(slf) do
+            lock(slf) do
+            end
+        end
         
         # Single threaded test
         for it in 1:100

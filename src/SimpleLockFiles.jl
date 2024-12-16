@@ -11,6 +11,7 @@ module SimpleLockFiles
     include("interface.jl")
 
     export SimpleLockFile
+    export SimpleLockFileError
     export lockpath
 
 end

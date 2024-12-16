@@ -27,7 +27,15 @@ function Base.lock(slf::SimpleLockFile;
     lock(slf.reelk) 
 
     # pidfile
-    isnothing(slf.mon) || error("'lock' call without matching 'unlock'")
+    if !isnothing(slf.mon)  
+        unlock(slf.reelk) # avoid unsync between pidfile and reelk state
+        throw(SimpleLockFileError(string(
+            "'lock' call without matching 'unlock', file: ", 
+            lockpath(slf)
+        )))
+    end
+
+    mkpath(slf)
     slf.mon = mkpidlock(slf.pidfile_path; stale_age, refresh, poll_interval) 
     return slf
 end
@@ -37,8 +45,11 @@ function Base.unlock(slf::SimpleLockFile; force = false)
 
     # pidfile
     if isnothing(slf.mon) 
-        force && rm(slf.pidfile_path; force = true)
-        error("'unlock' call without matching 'lock'")
+        force && rm(slf.pidfile_path; force = true) # Think about it
+        throw(SimpleLockFileError(string(
+            "'unlock' call without matching 'lock'. file: ", 
+            lockpath(slf)
+        )))
     end
     close(slf.mon)
     force && rm(slf.pidfile_path; force = true)
@@ -51,11 +62,22 @@ function Base.unlock(slf::SimpleLockFile; force = false)
 end
 
 function Base.lock(f::Function, slf::SimpleLockFile; force = false, kwargs...)
-    try; lock(slf,; kwargs...)
+    try; lock(slf; kwargs...)
         return f()
     finally
         unlock(slf; force)
     end
+end
+
+function islocked_pidfile(slf::SimpleLockFile) 
+    # Ignoring the monitor, all checks depending on the file
+    isfile(slf.pidfile_path) || return false
+    # trymkpidlock return false if try failed
+    stale_age = get(slf.extras, "stale_age.islock", 5 * SLF_DEAFAULT_STALE_AGE)::Float64
+    _success = trymkpidlock(slf.pidfile_path; stale_age) do
+        return true
+    end
+    return !_success
 end
 
 import Base.islocked
@@ -64,21 +86,23 @@ function Base.islocked(slf::SimpleLockFile)
     _islocked_reelk = islocked(slf.reelk)
     
     # pidfile
-    # Ignoring the monitor, all checks depending on the file
-    isfile(slf.pidfile_path) || return false 
-    # trymkpidlock return false if try failed
-    stale_age = get(slf.extras, "stale_age", SLF_DEAFAULT_STALE_AGE)::Float64
-    _islocked_pidfile = !trymkpidlock(slf.pidfile_path; stale_age) do
-        return true
-    end
+    _islocked_pidfile = islocked_pidfile(slf)
 
-    (_islocked_pidfile === _islocked_reelk) || 
-        error(
-            "unvalid lock state!!!", 
-            " reelk, ", _islocked_reelk, 
-            ", pidfile: ", _islocked_pidfile
+    # This is legal
+    # reelk = :unlocked
+    # pidfile = :locked
+    # This illegal
+    # reelk = :locked
+    # pidfile = :unlocked
+    # TODO: TAI: make it an error
+    (_islocked_reelk && !_islocked_pidfile) && 
+        @warn(
+            "unsync lock state!!!", 
+            reelk = _islocked_reelk ? :locked : :unlocked, 
+            pidfile = _islocked_pidfile ? :locked : :unlocked
         )
-    return _islocked_pidfile
+
+    return _islocked_pidfile | _islocked_reelk
 end
 
 # ----------------------------------------------------------------------

@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------
-# type
+# types
 mutable struct SimpleLockFile <: Base.AbstractLock
     pidfile_path::AbstractString
     reelk::ReentrantLock
@@ -10,4 +10,8 @@ mutable struct SimpleLockFile <: Base.AbstractLock
         lk = new(pidfile_path, ReentrantLock(), nothing, Dict())
         return lk
     end
+end
+
+struct SimpleLockFileError <: Exception
+    msg::AbstractString
 end
